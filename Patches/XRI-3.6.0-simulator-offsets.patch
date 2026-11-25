@@ -1,5 +1,5 @@
---- a/Library/PackageCache/com.unity.xr.interaction.toolkit@c7557c6c9ee4/Runtime/Inputs/Simulation/XRInteractionSimulator.cs
-+++ b/Library/PackageCache/com.unity.xr.interaction.toolkit@c7557c6c9ee4/Runtime/Inputs/Simulation/XRInteractionSimulator.cs
+--- a/Runtime/Inputs/Simulation/XRInteractionSimulator.cs
++++ b/Runtime/Inputs/Simulation/XRInteractionSimulator.cs
 @@ -1294,6 +1294,7 @@
          SimulationCameraPoseProvider m_SimulationCameraPoseProvider;
          Vector3 m_OriginalCameraOffsetObjectPosition;
