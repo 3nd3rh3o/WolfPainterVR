@@ -1,0 +1,44 @@
+--- a/Library/PackageCache/com.unity.xr.interaction.toolkit@c7557c6c9ee4/Runtime/Inputs/Simulation/XRInteractionSimulator.cs
++++ b/Library/PackageCache/com.unity.xr.interaction.toolkit@c7557c6c9ee4/Runtime/Inputs/Simulation/XRInteractionSimulator.cs
+@@ -1294,6 +1294,7 @@
+         SimulationCameraPoseProvider m_SimulationCameraPoseProvider;
+         Vector3 m_OriginalCameraOffsetObjectPosition;
+         float m_OriginalCameraYOffset;
++        bool m_XRSimulationOffsetsApplied;
+ #endif
+ 
+         /// <summary>
+@@ -1465,6 +1466,9 @@
+ #if XR_SIMULATION_AVAILABLE
+         void RestoreXRSimulationOffsets()
+         {
++            if (!m_XRSimulationOffsetsApplied)
++                return;
++
+             if (m_SimulationCameraPoseProvider != null)
+                 m_SimulationCameraPoseProvider.enabled = true;
+ 
+@@ -1481,12 +1485,13 @@
+ 
+             m_OriginalCameraYOffset = 0f;
+             m_OriginalCameraOffsetObjectPosition = Vector3.zero;
++            m_XRSimulationOffsetsApplied = false;
+         }
+ 
+ #if XR_MANAGEMENT_4_0_OR_NEWER
+         void ApplyXRSimulationOffsets()
+         {
+-            if (!XRSimulatorUtility.XRSimulationLoaderEnabledForEditorPlayMode())
++            if (m_XRSimulationOffsetsApplied || !XRSimulatorUtility.XRSimulationLoaderEnabledForEditorPlayMode())
+                 return;
+ 
+             if (m_XROrigin != null)
+@@ -1519,6 +1524,8 @@
+             m_SimulationCameraPoseProvider = null;
+             if (ComponentLocatorUtility<SimulationCameraPoseProvider>.TryFindComponent(out m_SimulationCameraPoseProvider))
+                 m_SimulationCameraPoseProvider.enabled = false;
++
++            m_XRSimulationOffsetsApplied = true;
+         }
+ #endif
+ #endif
