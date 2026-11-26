@@ -461,10 +461,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AirDrawingPen
   tip: {fileID: 624049120}
+  renderMode: 0
   color: {r: 0, g: 0, b: 1, a: 1}
   width: 0.01
   minDistance: 0.005
   lineMaterial: {fileID: 2100000, guid: 36b9900a1bf56d94f89dfca6c32e27c1, type: 2}
+  tubeMaterial: {fileID: 2100000, guid: 9aace3e795c47364b8ad1bdba85aa152, type: 2}
+  radialSegments: 8
+  useSmoothing: 1
+  subdivisions: 5
+  isDrawing: 0
 --- !u!1 &1924413242
 GameObject:
   m_ObjectHideFlags: 0

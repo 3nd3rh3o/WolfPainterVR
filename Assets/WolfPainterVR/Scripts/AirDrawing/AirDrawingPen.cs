@@ -2,16 +2,31 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum StrokeRenderMode
+{
+    LineRenderer,
+    TubeMesh
+}
+
 public class AirDrawingPen : MonoBehaviour
 {
     [Header("Pen")]
     [SerializeField] private Transform tip;
+
+    [Header("Rendering")]
+    [SerializeField]
+    private StrokeRenderMode renderMode = StrokeRenderMode.LineRenderer;
 
     [Header("Drawing settings")]
     [SerializeField] private Color color = Color.blue;
     [SerializeField] private float width = 0.01f;
     [SerializeField] private float minDistance = 0.005f;
     [SerializeField] private Material lineMaterial;
+    [SerializeField] private Material tubeMaterial;
+
+    [Header("Tube settings")]
+    [SerializeField, Range(3, 32)]
+    private int radialSegments = 8;
 
     [Header("Curve smoothing")]
     [SerializeField] private bool useSmoothing = true;
@@ -22,7 +37,11 @@ public class AirDrawingPen : MonoBehaviour
     [Header("Drawing state")]
     [SerializeField] private bool isDrawing = false;
 
+    private GameObject currentStroke;
     private LineRenderer currentLine;
+    private Mesh currentMesh;
+
+    private StrokeRenderMode currentRenderMode;
     private Vector3 lastPosition;
 
     // Store original positions before interpolation.
@@ -30,9 +49,9 @@ public class AirDrawingPen : MonoBehaviour
 
     private void Start()
     {
-        if (tip == null || lineMaterial == null)
+        if (tip == null)
         {
-            Debug.LogError("Pen tip or line material is missing.");
+            Debug.LogError("Pen tip is missing.");
             enabled = false;
         }
     }
@@ -41,7 +60,7 @@ public class AirDrawingPen : MonoBehaviour
     {
         if (!isDrawing)
         {
-            if (currentLine != null)
+            if (currentStroke != null)
             {
                 StopDrawing();
             }
@@ -49,11 +68,11 @@ public class AirDrawingPen : MonoBehaviour
             return;
         }
 
-        if (currentLine == null)
+        if (currentStroke == null)
         {
             StartDrawing();
 
-            if (currentLine == null)
+            if (currentStroke == null)
             {
                 return;
             }
@@ -61,51 +80,89 @@ public class AirDrawingPen : MonoBehaviour
 
         Vector3 currentPosition = tip.position;
 
-        // Sample a new point only if the pen has moved far enough.
+        // Sample a point only after sufficient movement.
         if (Vector3.Distance(lastPosition, currentPosition) >= minDistance)
         {
             AddPoint(currentPosition);
         }
     }
 
-    // Start a new independent stroke.
     public void StartDrawing()
     {
-        if (currentLine != null || tip == null || lineMaterial == null)
+        if (currentStroke != null || tip == null)
         {
             return;
         }
 
+        Material selectedMaterial =
+            renderMode == StrokeRenderMode.LineRenderer
+                ? lineMaterial
+                : tubeMaterial;
+
+        if (selectedMaterial == null)
+        {
+            Debug.LogError("Selected rendering material is missing.");
+            isDrawing = false;
+            return;
+        }
+
         isDrawing = true;
-        CreateLine();
+
+        // Keep the selected rendering mode for the entire stroke.
+        currentRenderMode = renderMode;
+
+        CreateStroke();
     }
 
-    // End the current stroke without removing completed drawings.
     public void StopDrawing()
     {
         isDrawing = false;
 
         // Remove incomplete strokes.
-        if (currentLine != null && rawPoints.Count < 2)
+        if (currentStroke != null && rawPoints.Count < 2)
         {
-            Destroy(currentLine.gameObject);
+            if (currentMesh != null)
+            {
+                Destroy(currentMesh);
+            }
+
+            Destroy(currentStroke);
         }
 
+        currentStroke = null;
         currentLine = null;
+        currentMesh = null;
+
         rawPoints.Clear();
+    }
+
+    private void CreateStroke()
+    {
+        rawPoints.Clear();
+
+        currentStroke = new GameObject("AirStroke");
+
+        switch (currentRenderMode)
+        {
+            case StrokeRenderMode.LineRenderer:
+                CreateLine();
+                break;
+
+            case StrokeRenderMode.TubeMesh:
+                CreateTube();
+                break;
+        }
+
+        AddPoint(tip.position);
     }
 
     private void CreateLine()
     {
-        rawPoints.Clear();
+        currentStroke.name = "AirStroke_Line";
 
-        GameObject lineObject = new GameObject("AirStroke");
+        currentLine = currentStroke.AddComponent<LineRenderer>();
 
-        currentLine = lineObject.AddComponent<LineRenderer>();
-
-        // Keep the stroke independent of the pen's movements.
         currentLine.useWorldSpace = true;
-
         currentLine.sharedMaterial = lineMaterial;
 
         currentLine.startColor = color;
@@ -118,8 +175,32 @@ public class AirDrawingPen : MonoBehaviour
         currentLine.numCornerVertices = 8;
 
         currentLine.positionCount = 0;
+    }
 
-        AddPoint(tip.position);
+    private void CreateTube()
+    {
+        currentStroke.name = "AirStroke_Tube";
+
+        MeshFilter meshFilter =
+            currentStroke.AddComponent<MeshFilter>();
+
+        MeshRenderer meshRenderer =
+            currentStroke.AddComponent<MeshRenderer>();
+
+        currentMesh = new Mesh();
+        currentMesh.name = "AirStrokeMesh";
+        currentMesh.MarkDynamic();
+
+        meshFilter.sharedMesh = currentMesh;
+        meshRenderer.sharedMaterial = tubeMaterial;
+
+        // Apply a per-stroke color without duplicating the material.
+        MaterialPropertyBlock properties =
+            new MaterialPropertyBlock();
+
+        properties.SetColor("_BaseColor", color);
+
+        meshRenderer.SetPropertyBlock(properties);
     }
 
     private void AddPoint(Vector3 position)
@@ -127,11 +208,10 @@ public class AirDrawingPen : MonoBehaviour
         rawPoints.Add(position);
         lastPosition = position;
 
-        UpdateLine();
+        UpdateStroke();
     }
 
-    // Update the displayed stroke with optional spline interpolation.
-    private void UpdateLine()
+    private void UpdateStroke()
     {
         List<Vector3> displayPoints;
 
@@ -147,7 +227,22 @@ public class AirDrawingPen : MonoBehaviour
             displayPoints = rawPoints;
         }
 
-        currentLine.positionCount = displayPoints.Count;
-        currentLine.SetPositions(displayPoints.ToArray());
+        // Update the geometry using the active rendering mode.
+        switch (currentRenderMode)
+        {
+            case StrokeRenderMode.LineRenderer:
+                currentLine.positionCount = displayPoints.Count;
+                currentLine.SetPositions(displayPoints.ToArray());
+                break;
+
+            case StrokeRenderMode.TubeMesh:
+                TubeMeshGenerator.GenerateMesh(
+                    currentMesh,
+                    displayPoints,
+                    width * 0.5f,
+                    radialSegments
+                );
+                break;
+        }
     }
 }
