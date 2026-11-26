@@ -1,4 +1,5 @@
 
+using System.Collections.Generic;
 using UnityEngine;
 
 public class AirDrawingPen : MonoBehaviour
@@ -12,11 +13,20 @@ public class AirDrawingPen : MonoBehaviour
     [SerializeField] private float minDistance = 0.005f;
     [SerializeField] private Material lineMaterial;
 
+    [Header("Curve smoothing")]
+    [SerializeField] private bool useSmoothing = true;
+
+    [SerializeField, Range(1, 20)]
+    private int subdivisions = 5;
+
     [Header("Drawing state")]
     [SerializeField] private bool isDrawing = false;
 
     private LineRenderer currentLine;
     private Vector3 lastPosition;
+
+    // Store original positions before interpolation.
+    private List<Vector3> rawPoints = new List<Vector3>();
 
     private void Start()
     {
@@ -42,16 +52,23 @@ public class AirDrawingPen : MonoBehaviour
         if (currentLine == null)
         {
             StartDrawing();
+
+            if (currentLine == null)
+            {
+                return;
+            }
         }
 
         Vector3 currentPosition = tip.position;
 
+        // Sample a new point only if the pen has moved far enough.
         if (Vector3.Distance(lastPosition, currentPosition) >= minDistance)
         {
             AddPoint(currentPosition);
         }
     }
 
+    // Start a new independent stroke.
     public void StartDrawing()
     {
         if (currentLine != null || tip == null || lineMaterial == null)
@@ -63,25 +80,32 @@ public class AirDrawingPen : MonoBehaviour
         CreateLine();
     }
 
+    // End the current stroke without removing completed drawings.
     public void StopDrawing()
     {
         isDrawing = false;
 
-        if (currentLine != null && currentLine.positionCount < 2)
+        // Remove incomplete strokes.
+        if (currentLine != null && rawPoints.Count < 2)
         {
             Destroy(currentLine.gameObject);
         }
 
         currentLine = null;
+        rawPoints.Clear();
     }
 
     private void CreateLine()
     {
+        rawPoints.Clear();
+
         GameObject lineObject = new GameObject("AirStroke");
 
         currentLine = lineObject.AddComponent<LineRenderer>();
 
+        // Keep the stroke independent of the pen's movements.
         currentLine.useWorldSpace = true;
+
         currentLine.sharedMaterial = lineMaterial;
 
         currentLine.startColor = color;
@@ -100,11 +124,30 @@ public class AirDrawingPen : MonoBehaviour
 
     private void AddPoint(Vector3 position)
     {
-        int index = currentLine.positionCount;
-
-        currentLine.positionCount++;
-        currentLine.SetPosition(index, position);
-
+        rawPoints.Add(position);
         lastPosition = position;
+
+        UpdateLine();
+    }
+
+    // Update the displayed stroke with optional spline interpolation.
+    private void UpdateLine()
+    {
+        List<Vector3> displayPoints;
+
+        if (useSmoothing)
+        {
+            displayPoints = CatmullRomSpline.GenerateCurve(
+                rawPoints,
+                subdivisions
+            );
+        }
+        else
+        {
+            displayPoints = rawPoints;
+        }
+
+        currentLine.positionCount = displayPoints.Count;
+        currentLine.SetPositions(displayPoints.ToArray());
     }
 }
