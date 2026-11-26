@@ -1,3 +1,4 @@
+
 using UnityEngine;
 
 public class AirDrawingPen : MonoBehaviour
@@ -11,6 +12,9 @@ public class AirDrawingPen : MonoBehaviour
     [SerializeField] private float minDistance = 0.005f;
     [SerializeField] private Material lineMaterial;
 
+    [Header("Drawing state")]
+    [SerializeField] private bool isDrawing = false;
+
     private LineRenderer currentLine;
     private Vector3 lastPosition;
 
@@ -20,20 +24,55 @@ public class AirDrawingPen : MonoBehaviour
         {
             Debug.LogError("Pen tip or line material is missing.");
             enabled = false;
-            return;
         }
-
-        CreateLine();
     }
 
     private void Update()
     {
+        if (!isDrawing)
+        {
+            if (currentLine != null)
+            {
+                StopDrawing();
+            }
+
+            return;
+        }
+
+        if (currentLine == null)
+        {
+            StartDrawing();
+        }
+
         Vector3 currentPosition = tip.position;
 
         if (Vector3.Distance(lastPosition, currentPosition) >= minDistance)
         {
             AddPoint(currentPosition);
         }
+    }
+
+    public void StartDrawing()
+    {
+        if (currentLine != null || tip == null || lineMaterial == null)
+        {
+            return;
+        }
+
+        isDrawing = true;
+        CreateLine();
+    }
+
+    public void StopDrawing()
+    {
+        isDrawing = false;
+
+        if (currentLine != null && currentLine.positionCount < 2)
+        {
+            Destroy(currentLine.gameObject);
+        }
+
+        currentLine = null;
     }
 
     private void CreateLine()
@@ -43,7 +82,7 @@ public class AirDrawingPen : MonoBehaviour
         currentLine = lineObject.AddComponent<LineRenderer>();
 
         currentLine.useWorldSpace = true;
-        currentLine.material = lineMaterial;
+        currentLine.sharedMaterial = lineMaterial;
 
         currentLine.startColor = color;
         currentLine.endColor = color;
