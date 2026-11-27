@@ -121,6 +121,18 @@ public class AirDrawingPen : MonoBehaviour
         rawPoints.Clear();
     }
 
+    // Set the color for future strokes.
+    public void SetColor(Color newColor)
+    {
+        color = newColor;
+    }
+
+    // Return the current pen color.
+    public Color GetColor()
+    {
+        return color;
+    }
+
     private void CreateStroke(Material material)
     {
         rawPoints.Clear();
