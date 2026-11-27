@@ -1,0 +1,14 @@
+#pragma kernel CSMain
+
+RWTexture2D<float4> _Result;
+float2 _Position;
+float4 _Color;
+float _Size;
+float _Opacity;
+float _Hardness;
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    // idk what I should put...
+}

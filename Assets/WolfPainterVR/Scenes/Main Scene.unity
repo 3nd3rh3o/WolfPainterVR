@@ -503,8 +503,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Canvas
   tip: {fileID: 798799267}
-  color: {r: 0, g: 0, b: 0, a: 0}
-  width: 0
+  color: {r: 1, g: 0, b: 0, a: 1}
+  width: 12
+  paintShader: {fileID: 7200000, guid: c6cfd544fa054f108b89c3e1f37f4c10, type: 3}
+  targetTexture: {fileID: 8400000, guid: d7ddd4231d80acb42a5145e389705cf7, type: 2}
 --- !u!1 &1703568385
 GameObject:
   m_ObjectHideFlags: 0
