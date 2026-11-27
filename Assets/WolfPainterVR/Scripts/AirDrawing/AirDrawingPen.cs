@@ -37,11 +37,7 @@ public class AirDrawingPen : MonoBehaviour
     [Header("Drawing state")]
     [SerializeField] private bool isDrawing = false;
 
-    private GameObject currentStroke;
-    private LineRenderer currentLine;
-    private Mesh currentMesh;
-
-    private StrokeRenderMode currentRenderMode;
+    private StrokeRenderer currentStroke;
     private Vector3 lastPosition;
 
     // Store original positions before interpolation.
@@ -108,10 +104,7 @@ public class AirDrawingPen : MonoBehaviour
 
         isDrawing = true;
 
-        // Keep the selected rendering mode for the entire stroke.
-        currentRenderMode = renderMode;
-
-        CreateStroke();
+        CreateStroke(selectedMaterial);
     }
 
     public void StopDrawing()
@@ -121,86 +114,48 @@ public class AirDrawingPen : MonoBehaviour
         // Remove incomplete strokes.
         if (currentStroke != null && rawPoints.Count < 2)
         {
-            if (currentMesh != null)
-            {
-                Destroy(currentMesh);
-            }
-
-            Destroy(currentStroke);
+            Destroy(currentStroke.gameObject);
         }
 
         currentStroke = null;
-        currentLine = null;
-        currentMesh = null;
-
         rawPoints.Clear();
     }
 
-    private void CreateStroke()
+    private void CreateStroke(Material material)
     {
         rawPoints.Clear();
 
-        currentStroke = new GameObject("AirStroke");
+        GameObject strokeObject = new GameObject("AirStroke");
 
-        switch (currentRenderMode)
+        // Select the rendering strategy.
+        switch (renderMode)
         {
             case StrokeRenderMode.LineRenderer:
-                CreateLine();
+
+                strokeObject.name = "AirStroke_Line";
+
+                currentStroke =
+                    strokeObject.AddComponent<LineStrokeRenderer>();
+
                 break;
 
             case StrokeRenderMode.TubeMesh:
-                CreateTube();
+
+                strokeObject.name = "AirStroke_Tube";
+
+                TubeStrokeRenderer tubeRenderer =
+                    strokeObject.AddComponent<TubeStrokeRenderer>();
+
+                tubeRenderer.SetRadialSegments(radialSegments);
+
+                currentStroke = tubeRenderer;
+
                 break;
         }
 
+        currentStroke.Initialize(material, color, width);
+
         AddPoint(tip.position);
-    }
-
-    private void CreateLine()
-    {
-        currentStroke.name = "AirStroke_Line";
-
-        currentLine = currentStroke.AddComponent<LineRenderer>();
-
-        currentLine.useWorldSpace = true;
-        currentLine.sharedMaterial = lineMaterial;
-
-        currentLine.startColor = color;
-        currentLine.endColor = color;
-
-        currentLine.startWidth = width;
-        currentLine.endWidth = width;
-
-        currentLine.numCapVertices = 8;
-        currentLine.numCornerVertices = 8;
-
-        currentLine.positionCount = 0;
-    }
-
-    private void CreateTube()
-    {
-        currentStroke.name = "AirStroke_Tube";
-
-        MeshFilter meshFilter =
-            currentStroke.AddComponent<MeshFilter>();
-
-        MeshRenderer meshRenderer =
-            currentStroke.AddComponent<MeshRenderer>();
-
-        currentMesh = new Mesh();
-        currentMesh.name = "AirStrokeMesh";
-        currentMesh.MarkDynamic();
-
-        meshFilter.sharedMesh = currentMesh;
-        meshRenderer.sharedMaterial = tubeMaterial;
-
-        // Apply a per-stroke color without duplicating the material.
-        MaterialPropertyBlock properties =
-            new MaterialPropertyBlock();
-
-        properties.SetColor("_BaseColor", color);
-
-        meshRenderer.SetPropertyBlock(properties);
     }
 
     private void AddPoint(Vector3 position)
@@ -227,22 +182,7 @@ public class AirDrawingPen : MonoBehaviour
             displayPoints = rawPoints;
         }
 
-        // Update the geometry using the active rendering mode.
-        switch (currentRenderMode)
-        {
-            case StrokeRenderMode.LineRenderer:
-                currentLine.positionCount = displayPoints.Count;
-                currentLine.SetPositions(displayPoints.ToArray());
-                break;
-
-            case StrokeRenderMode.TubeMesh:
-                TubeMeshGenerator.GenerateMesh(
-                    currentMesh,
-                    displayPoints,
-                    width * 0.5f,
-                    radialSegments
-                );
-                break;
-        }
+        // Delegate geometry updates to the rendering strategy.
+        currentStroke.UpdateStroke(displayPoints);
     }
 }
